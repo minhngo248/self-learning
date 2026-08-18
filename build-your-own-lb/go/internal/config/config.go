@@ -8,9 +8,10 @@ import (
 
 // Config holds all runtime settings for the load balancer
 type Config struct {
-	Port   int
-	LBType string
-	LBAlgo string
+	Port    int
+	Profile string // dev OR prod
+	LBType  string
+	LBAlgo  string
 }
 
 // Load parses CLI flags and returns a validated Config
@@ -21,6 +22,7 @@ func Load() (*Config, error) {
 	fs := flag.NewFlagSet("loadbalancer", flag.ContinueOnError)
 
 	fs.IntVar(&cfg.Port, "port", 8080, "Port to listen on")
+	fs.StringVar(&cfg.Profile, "profile", "dev", "Runtime profile (dev, prod)")
 	fs.StringVar(&cfg.LBType, "type", "application", "Type of LB (application, network)")
 	fs.StringVar(&cfg.LBAlgo, "algo", "roundrobin", "LB algorithm (roundrobin, leastconn)")
 
@@ -41,6 +43,10 @@ func Load() (*Config, error) {
 func (c *Config) Validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("port must be between 1 and 65535, got %d", c.Port)
+	}
+
+	if c.Profile != "dev" && c.Profile != "prod" {
+		return fmt.Errorf("profile must be dev OR prod, got %s", c.Profile)
 	}
 
 	if c.LBType != "application" && c.LBType != "network" {
