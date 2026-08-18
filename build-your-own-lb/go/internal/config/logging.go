@@ -1,9 +1,32 @@
 package config
 
 import (
+	"context"
 	log "log/slog"
 	"os"
+	"runtime"
 )
+
+type goroutineHandler struct {
+	handler log.Handler
+}
+
+func (h goroutineHandler) Enabled(ctx context.Context, level log.Level) bool {
+	return h.handler.Enabled(ctx, level)
+}
+
+func (h goroutineHandler) Handle(ctx context.Context, record log.Record) error {
+	record.AddAttrs(log.Int("goroutines", runtime.NumGoroutine()))
+	return h.handler.Handle(ctx, record)
+}
+
+func (h goroutineHandler) WithAttrs(attrs []log.Attr) log.Handler {
+	return goroutineHandler{handler: h.handler.WithAttrs(attrs)}
+}
+
+func (h goroutineHandler) WithGroup(name string) log.Handler {
+	return goroutineHandler{handler: h.handler.WithGroup(name)}
+}
 
 func InitLogger(profile string) {
 	var level log.Level
@@ -21,6 +44,6 @@ func InitLogger(profile string) {
 		})
 	}
 
-	// Set as the default global logger
-	log.SetDefault(log.New(handler))
+	// Set as the default global logger with goroutine count in every record.
+	log.SetDefault(log.New(goroutineHandler{handler: handler}))
 }

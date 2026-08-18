@@ -23,10 +23,6 @@ func NewApplicationHealthChecker(backends []*backend.Backend, periodSeconds int)
 }
 
 func (ahc *ApplicationHealthChecker) CheckHealth(ctx context.Context, shutdownWg *sync.WaitGroup) {
-	// Implement the health check logic for application load balancer
-	// For example, you can send an HTTP request to the backend and check the response status code
-	// Return true if the backend is healthy, false otherwise
-	// This is a placeholder implementation, you should replace it with your actual health check logic
 	ticker := time.NewTicker(time.Duration(ahc.periodSeconds) * time.Second)
 	defer ticker.Stop()
 

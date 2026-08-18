@@ -7,7 +7,7 @@ type Backend struct {
 	nbRetry atomic.Uint32
 }
 
-func NewBackend(addr string, nbRetry uint32) *Backend {
+func NewBackend(addr string) *Backend {
 	return &Backend{
 		addr:    addr,
 		nbRetry: atomic.Uint32{},

@@ -34,19 +34,20 @@ func main() {
 	// Init backends
 	backends := make([]*backend.Backend, len(backendAddrs))
 	for i, backendAddr := range backendAddrs {
-		backends[i] = backend.NewBackend(backendAddr, 0)
+		backends[i] = backend.NewBackend(backendAddr)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var shutdownWg sync.WaitGroup
+	shutdownWg.Add(1)
 
 	// Start background context for health checking
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Init health checker
-	healthChecker := health.NewApplicationHealthChecker(backends, 10)
-	go healthChecker.CheckHealth(ctx, &wg)
+	periodSeconds := 10
+	healthChecker := health.NewApplicationHealthChecker(backends, periodSeconds)
+	go healthChecker.CheckHealth(ctx, &shutdownWg)
 
 	var lbAlgo algo.LBAlgo
 	switch cfg.LBAlgo {
