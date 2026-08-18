@@ -29,3 +29,19 @@ func (be *Backend) SetNbRetry(nbRetry uint32) {
 func (be *Backend) IncNbRetry() {
 	be.nbRetry.Add(1)
 }
+
+func (be *Backend) ResetNbRetry() {
+	be.nbRetry.Store(0)
+}
+
+func (be *Backend) IsHealthy() bool {
+	return be.NbRetry() == 0
+}
+
+func (be *Backend) IsRetrying() bool {
+	return be.NbRetry() > 0 && be.NbRetry() <= 3
+}
+
+func (be *Backend) IsUnhealthy() bool {
+	return be.NbRetry() > 3
+}

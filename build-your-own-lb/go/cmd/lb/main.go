@@ -38,7 +38,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(backends))
+	wg.Add(1)
 
 	// Start background context for health checking
 	ctx, cancel := context.WithCancel(context.Background())
@@ -46,13 +46,13 @@ func main() {
 
 	// Init health checker
 	healthChecker := health.NewApplicationHealthChecker(backends, 10)
-	healthChecker.CheckHealth(ctx, &wg)
+	go healthChecker.CheckHealth(ctx, &wg)
 
 	var lbAlgo algo.LBAlgo
 	switch cfg.LBAlgo {
 	case "roundrobin":
 		// init round robin algorithm
-		lbAlgo = algo.NewRoundRobin(backendAddrs)
+		lbAlgo = algo.NewRoundRobin(backends)
 	default:
 		utils.Fatal("Unsupported load balancing algorithm: %s", cfg.LBAlgo)
 	}

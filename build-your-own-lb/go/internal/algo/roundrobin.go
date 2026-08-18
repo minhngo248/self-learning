@@ -1,16 +1,19 @@
 package algo
 
 import (
+	log "log/slog"
 	"sync/atomic"
+
+	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/backend"
 )
 
 type RoundRobin struct {
-	backends []string
-	incr     atomic.Uint64
+	backends []*backend.Backend
+	current  atomic.Uint64
 }
 
 // NewRoundRobin initializes the balancer with target backend addresses
-func NewRoundRobin(backends []string) *RoundRobin {
+func NewRoundRobin(backends []*backend.Backend) *RoundRobin {
 	return &RoundRobin{
 		backends: backends,
 	}
@@ -18,9 +21,14 @@ func NewRoundRobin(backends []string) *RoundRobin {
 
 // NextAddr retrieves the next backend in a thread-safe manner
 func (rr *RoundRobin) NextAddr() string {
-	if len(rr.backends) == 0 {
-		return ""
+	for range rr.backends {
+		idx := int(rr.current.Add(1)-1) % len(rr.backends)
+		be := rr.backends[idx]
+		if be.IsHealthy() {
+			return be.Addr()
+		}
 	}
-	n := rr.incr.Add(1) - 1
-	return rr.backends[n%uint64(len(rr.backends))]
+
+	log.Warn("All backends degraded")
+	return "" // all backends degraded
 }

@@ -51,7 +51,7 @@ func (ahc *ApplicationHealthChecker) CheckHealth(ctx context.Context, shutdownWg
 			tickWg.Wait() // guarantees no concurrent IncNbRetry when we read below
 
 			for _, be := range ahc.backends {
-				if be.NbRetry() > 3 {
+				if be.IsUnhealthy() {
 					addrToDelete = append(addrToDelete, be.Addr())
 				}
 			}
@@ -67,7 +67,7 @@ func (ahc *ApplicationHealthChecker) CheckHealth(ctx context.Context, shutdownWg
 				if _, found := toDelete[be.Addr()]; !found {
 					filteredBackends = append(filteredBackends, be)
 				} else {
-					log.Warn("Removing unhealthy backend", "addr", be.Addr())
+					log.Info("Removing unhealthy backend", "addr", be.Addr())
 				}
 			}
 			ahc.backends = filteredBackends
@@ -83,8 +83,22 @@ func checkHealth(ctx context.Context, be *backend.Backend) {
 		return
 	}
 
-	if _, err := http.DefaultClient.Do(req); err != nil {
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
 		be.IncNbRetry()
-		log.Warn("Unhealthy backend", "addr", be.Addr(), "retries", be.NbRetry())
+		log.Warn("Failed to check health", "addr", be.Addr(), "error", err, "time", be.NbRetry())
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		be.IncNbRetry()
+		log.Warn("Unhealthy backend", "addr", be.Addr(), "status", resp.StatusCode, "time", be.NbRetry())
+		return
+	}
+
+	if be.IsRetrying() {
+		log.Info("Backend recovered", "addr", be.Addr())
+		be.ResetNbRetry()
 	}
 }
