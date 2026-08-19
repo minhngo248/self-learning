@@ -42,6 +42,8 @@ func TestMain_CallTheUnhealthyBackendInTheFirstPeriodSecond(t *testing.T) {
 	healthChecker := health.NewApplicationHealthChecker(backends, periodSeconds)
 	go healthChecker.CheckHealth(ctx, &shutdownWg)
 
+	<-healthChecker.Ready()
+
 	lbAlgo := algo.NewRoundRobin(backends)
 	alb := proxy.NewALB(lbAlgo)
 	server := httptest.NewServer(alb)

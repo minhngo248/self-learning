@@ -13,13 +13,20 @@ import (
 type ApplicationHealthChecker struct {
 	backends      []*backend.Backend
 	periodSeconds int
+	ready         chan struct{}
+	readyOnce     sync.Once
 }
 
 func NewApplicationHealthChecker(backends []*backend.Backend, periodSeconds int) *ApplicationHealthChecker {
 	return &ApplicationHealthChecker{
 		backends:      backends,
 		periodSeconds: periodSeconds,
+		ready:         make(chan struct{}),
 	}
+}
+
+func (ahc *ApplicationHealthChecker) Ready() <-chan struct{} {
+	return ahc.ready
 }
 
 func (ahc *ApplicationHealthChecker) CheckHealth(ctx context.Context, shutdownWg *sync.WaitGroup) {
@@ -45,6 +52,9 @@ func (ahc *ApplicationHealthChecker) CheckHealth(ctx context.Context, shutdownWg
 				}(be)
 			}
 			tickWg.Wait() // guarantees no concurrent IncNbRetry when we read below
+			ahc.readyOnce.Do(func() {
+				close(ahc.ready)
+			})
 
 			for _, be := range ahc.backends {
 				if be.IsUnhealthy() {

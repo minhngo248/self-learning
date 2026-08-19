@@ -49,6 +49,8 @@ func main() {
 	healthChecker := health.NewApplicationHealthChecker(backends, periodSeconds)
 	go healthChecker.CheckHealth(ctx, &shutdownWg)
 
+	<-healthChecker.Ready()
+
 	var lbAlgo algo.LBAlgo
 	switch cfg.LBAlgo {
 	case "roundrobin":
