@@ -40,7 +40,7 @@ func TestMain_CallTheUnhealthyBackendInTheFirstPeriodSecond(t *testing.T) {
 
 	periodSeconds := 10
 	healthChecker := health.NewApplicationHealthChecker(backends, periodSeconds)
-	go healthChecker.CheckHealth(ctx, &shutdownWg)
+	go healthChecker.CheckHealth(ctx, &shutdownWg, healthChecker.CustomCheckHealth)
 
 	<-healthChecker.Ready()
 

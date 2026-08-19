@@ -45,7 +45,6 @@ func (nlb *NLB) handleConnection(conn net.Conn) {
 
 	// Connect to the backend
 	backendConn, err := net.Dial("tcp", backendAddr)
-
 	if err != nil {
 		log.Error("Failed to connect to backend", "backend", backendAddr, "error", err)
 		return
@@ -63,6 +62,7 @@ func (nlb *NLB) handleConnection(conn net.Conn) {
 		if err != nil {
 			log.Error("Error while copying from client to backend", "error", err)
 		}
+		//log.Info("Finished copying from client to backend", "backend", backendAddr)
 		// signal backend we're done sending
 		if tcpConn, ok := backendConn.(*net.TCPConn); ok {
 			tcpConn.CloseWrite()
@@ -76,6 +76,7 @@ func (nlb *NLB) handleConnection(conn net.Conn) {
 		if err != nil {
 			log.Error("Error while copying from backend to client", "error", err)
 		}
+		//log.Info("Finished copying from backend to client", "backend", backendAddr)
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			tcpConn.CloseWrite()
 		}

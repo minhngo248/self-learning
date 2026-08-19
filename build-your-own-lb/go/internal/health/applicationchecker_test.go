@@ -53,7 +53,7 @@ func TestCheckHealth_WaitsForAllHealthChecksBeforeFiltering(t *testing.T) {
 	shutdownWg.Add(1)
 
 	checker := NewApplicationHealthChecker([]*backend.Backend{b1, b2}, 1)
-	go checker.CheckHealth(ctx, &shutdownWg)
+	go checker.CheckHealth(ctx, &shutdownWg, checker.CustomCheckHealth)
 
 	<-tr.started
 	<-tr.started

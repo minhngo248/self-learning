@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	log "log/slog"
+	"net"
 	"net/http"
 	"sync"
 
@@ -23,9 +24,9 @@ func main() {
 
 	// Backends
 	backendAddrs := []string{
-		"http://localhost:18000",
-		"http://localhost:18001",
-		"http://localhost:18002",
+		"localhost:18000",
+		"localhost:18001",
+		"localhost:18002",
 	}
 
 	// Set default logger level
@@ -44,12 +45,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Init health checker
+	// health checker properties
 	periodSeconds := 10
-	healthChecker := health.NewApplicationHealthChecker(backends, periodSeconds)
-	go healthChecker.CheckHealth(ctx, &shutdownWg)
-
-	<-healthChecker.Ready()
 
 	var lbAlgo algo.LBAlgo
 	switch cfg.LBAlgo {
@@ -63,6 +60,12 @@ func main() {
 	var lb any
 	switch cfg.LBType {
 	case "application":
+		// Init application health checker
+		healthChecker := health.NewApplicationHealthChecker(backends, periodSeconds)
+		go healthChecker.CheckHealth(ctx, &shutdownWg, healthChecker.CustomCheckHealth)
+
+		<-healthChecker.Ready()
+
 		// init ALB
 		lb = proxy.NewALB(lbAlgo)
 		log.Info("Load balancer starting", "port", cfg.Port, "algorithm", cfg.LBAlgo)
@@ -70,6 +73,23 @@ func main() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), lb.(http.Handler)); err != nil {
 			utils.Fatal("Server failed: %v", err)
 		}
+	case "network":
+		// Init network health checker
+		healthChecker := health.NewNetworkHealthChecker(backends, periodSeconds)
+		go healthChecker.CheckHealth(ctx, &shutdownWg, healthChecker.CustomCheckHealth)
+
+		<-healthChecker.Ready()
+
+		// init NLB
+		lb = proxy.NewNLB(lbAlgo)
+		log.Info("Load balancer starting", "port", cfg.Port, "algorithm", cfg.LBAlgo)
+
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Port))
+		if err != nil {
+			utils.Fatal("Failed to start listener: %v", err)
+		}
+
+		lb.(*proxy.NLB).ListenAndServe(listener)
 	default:
 		utils.Fatal("Unsupported load balancer type: %s", cfg.LBType)
 	}
