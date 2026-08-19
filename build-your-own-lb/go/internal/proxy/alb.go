@@ -34,7 +34,7 @@ func (alb *ALB) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ReverseProxy forwards method, headers, query params, body, and context
-	log.Info("Request routed to", "host", targetURL.Host)
+	log.Debug("Request routed to", "host", targetURL.Host)
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	proxy.ServeHTTP(w, r)
 }

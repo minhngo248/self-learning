@@ -1,6 +1,7 @@
 package algo_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/algo"
@@ -36,4 +37,20 @@ func TestRoundRobinNextAddr_AllUnhealthy(t *testing.T) {
 	if got := rr.NextAddr(); got != "" {
 		t.Fatalf("expected empty string for all unhealthy backends, got %q", got)
 	}
+}
+
+func ExampleRoundRobin_NextAddr() {
+	rr := algo.NewRoundRobin([]*backend.Backend{
+		backend.NewBackend("http://localhost:18000"),
+		backend.NewBackend("http://localhost:18001"),
+		backend.NewBackend("http://localhost:18002"),
+	})
+
+	fmt.Println(rr.NextAddr())
+	fmt.Println(rr.NextAddr())
+	fmt.Println(rr.NextAddr())
+	// Output:
+	// http://localhost:18000
+	// http://localhost:18001
+	// http://localhost:18002
 }
