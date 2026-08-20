@@ -15,6 +15,7 @@ type HealthChecker interface {
 }
 
 type HealthCheckerImpl struct {
+	mu            sync.RWMutex
 	backends      []*backend.Backend
 	periodSeconds int
 	ready         chan struct{}
@@ -23,6 +24,7 @@ type HealthCheckerImpl struct {
 
 func NewHealthChecker(backends []*backend.Backend, periodSeconds int) *HealthCheckerImpl {
 	return &HealthCheckerImpl{
+		mu:            sync.RWMutex{},
 		backends:      backends,
 		periodSeconds: periodSeconds,
 		ready:         make(chan struct{}),
@@ -71,7 +73,7 @@ func (hc *HealthCheckerImpl) CheckHealth(ctx context.Context, shutdownWg *sync.W
 				toDelete[addr] = struct{}{}
 			}
 
-			filteredBackends := hc.backends[:0]
+			filteredBackends := make([]*backend.Backend, 0, len(hc.backends)-len(toDelete))
 			for i := range hc.backends {
 				be := hc.backends[i]
 				if _, found := toDelete[be.Addr()]; !found {
@@ -80,7 +82,15 @@ func (hc *HealthCheckerImpl) CheckHealth(ctx context.Context, shutdownWg *sync.W
 					log.Info("Removing unhealthy backend", "addr", be.Addr())
 				}
 			}
+			hc.mu.Lock()
 			hc.backends = filteredBackends
+			hc.mu.Unlock()
 		}
 	}
+}
+
+func (hc *HealthCheckerImpl) Backends() []*backend.Backend {
+	hc.mu.RLock()
+	defer hc.mu.RUnlock()
+	return hc.backends
 }

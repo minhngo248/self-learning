@@ -80,7 +80,7 @@ func BenchmarkALB_ConnectionsPerSecond(b *testing.B) {
 	}
 
 	rr := algo.NewRoundRobin(backends)
-	alb := proxy.NewALB(rr)
+	alb := proxy.NewALB(rr, backends)
 
 	srv := httptest.NewServer(alb)
 	defer srv.Close()
@@ -112,7 +112,7 @@ func BenchmarkNLB_ConnectionsPerSecond(b *testing.B) {
 	}
 
 	rr := algo.NewRoundRobin(backends)
-	nlb := proxy.NewNLB(rr)
+	nlb := proxy.NewNLB(rr, backends)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

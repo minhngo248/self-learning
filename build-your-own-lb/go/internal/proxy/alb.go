@@ -7,15 +7,18 @@ import (
 	"net/url"
 
 	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/algo"
+	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/backend"
 )
 
 type ALB struct {
-	lbAlgo algo.LBAlgo
+	lbAlgo   algo.LBAlgo
+	backends []*backend.Backend
 }
 
-func NewALB(lbAlgo algo.LBAlgo) *ALB {
+func NewALB(lbAlgo algo.LBAlgo, backends []*backend.Backend) *ALB {
 	return &ALB{
-		lbAlgo: lbAlgo,
+		lbAlgo:   lbAlgo,
+		backends: backends,
 	}
 }
 
@@ -34,6 +37,10 @@ func (alb *ALB) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ReverseProxy forwards method, headers, query params, body, and context
+	backend := backend.BackendByAddr(alb.backends, targetAddr)
+	backend.IncNbConnection()
+	defer backend.DecNbConnection()
+
 	log.Debug("Request routed to", "host", targetURL.Host)
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	proxy.ServeHTTP(w, r)

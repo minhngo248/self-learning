@@ -7,15 +7,18 @@ import (
 	"sync"
 
 	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/algo"
+	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/backend"
 )
 
 type NLB struct {
-	lbAlgo algo.LBAlgo
+	lbAlgo   algo.LBAlgo
+	backends []*backend.Backend
 }
 
-func NewNLB(lbAlgo algo.LBAlgo) *NLB {
+func NewNLB(lbAlgo algo.LBAlgo, backends []*backend.Backend) *NLB {
 	return &NLB{
-		lbAlgo: lbAlgo,
+		lbAlgo:   lbAlgo,
+		backends: backends,
 	}
 }
 
@@ -29,11 +32,11 @@ func (nlb *NLB) ListenAndServe(listener net.Listener) {
 			continue
 		}
 
-		go nlb.handleConnection(conn)
+		go nlb.HandleConnection(conn)
 	}
 }
 
-func (nlb *NLB) handleConnection(conn net.Conn) {
+func (nlb *NLB) HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// Pick a backend
@@ -50,6 +53,10 @@ func (nlb *NLB) handleConnection(conn net.Conn) {
 		return
 	}
 	defer backendConn.Close()
+
+	backend := backend.BackendByAddr(nlb.backends, backendAddr)
+	backend.IncNbConnection()
+	defer backend.DecNbConnection()
 
 	// Pipe bytes in both directions concurrently
 	var wg sync.WaitGroup

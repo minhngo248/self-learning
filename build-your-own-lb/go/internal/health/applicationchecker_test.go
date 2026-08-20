@@ -61,15 +61,18 @@ func TestCheckHealth_WaitsForAllHealthChecksBeforeFiltering(t *testing.T) {
 	if b1.NbRetry() != 3 || b2.NbRetry() != 3 {
 		t.Fatalf("health checks should still be waiting; retries are %d and %d", b1.NbRetry(), b2.NbRetry())
 	}
-	if len(checker.backends) != 2 {
-		t.Fatalf("filtering happened before all health checks finished; len(backends) = %d", len(checker.backends))
+
+	testBackends := checker.Backends()
+	if len(testBackends) != 2 {
+		t.Fatalf("filtering happened before all health checks finished; len(backends) = %d", len(testBackends))
 	}
 
 	close(tr.release)
 
+	// Wait for the next tick to ensure that the filtering has occurred
 	time.Sleep(1500 * time.Millisecond)
-	if len(checker.backends) != 0 {
-		t.Fatalf("expected both backends to be filtered after retries complete, got %d backends", len(checker.backends))
+	if len(checker.Backends()) != 0 {
+		t.Fatalf("expected both backends to be filtered after retries complete, got %d backends", len(checker.Backends()))
 	}
 
 	cancel()

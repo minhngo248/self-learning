@@ -4,6 +4,7 @@ import (
 	"context"
 	log "log/slog"
 	"net"
+	"time"
 
 	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/backend"
 )
@@ -19,7 +20,7 @@ func NewNetworkHealthChecker(backends []*backend.Backend, periodSeconds int) *Ne
 }
 
 func (nhc *NetworkHealthChecker) CustomCheckHealth(ctx context.Context, be *backend.Backend) {
-	dialer := &net.Dialer{}
+	dialer := &net.Dialer{Timeout: 2 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", be.Addr())
 	if err != nil {
 		be.IncNbRetry()
