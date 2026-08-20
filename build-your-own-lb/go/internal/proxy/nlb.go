@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	log "log/slog"
 	"net"
@@ -22,12 +23,22 @@ func NewNLB(lbAlgo algo.LBAlgo, backends []*backend.Backend) *NLB {
 	}
 }
 
-func (nlb *NLB) ListenAndServe(listener net.Listener) {
+func (nlb *NLB) ListenAndServe(ctx context.Context, listener net.Listener) {
 	defer listener.Close()
+
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
+			if ctx.Err() != nil {
+				log.Info("NLB listener stopped")
+				return
+			}
+
 			log.Error("Failed to accept connection", "error", err)
 			continue
 		}

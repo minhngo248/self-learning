@@ -118,7 +118,7 @@ func BenchmarkNLB_ConnectionsPerSecond(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	go nlb.ListenAndServe(ln)
+	go nlb.ListenAndServe(b.Context(), ln)
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

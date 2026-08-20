@@ -24,8 +24,8 @@ func (lc *LeastConn) NextAddr() string {
 	minNbConn = math.MaxUint32
 	var nextAddr string
 
-	//lc.mu.RLock()
-	//defer lc.mu.RUnlock()
+	lc.mu.RLock()
+	defer lc.mu.RUnlock()
 	for _, backend := range lc.backends {
 		if (backend.IsHealthy()) && (backend.NbConnection() < minNbConn) {
 			minNbConn = backend.NbConnection()
