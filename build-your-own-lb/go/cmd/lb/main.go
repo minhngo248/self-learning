@@ -53,6 +53,9 @@ func main() {
 	case "roundrobin":
 		// init round robin algorithm
 		lbAlgo = algo.NewRoundRobin(backends)
+	case "leastconn":
+		// init least connection algorithm
+		lbAlgo = algo.NewLeastConn(backends)
 	default:
 		utils.Fatal("Unsupported load balancing algorithm: %s", cfg.LBAlgo)
 	}
@@ -67,7 +70,7 @@ func main() {
 		<-healthChecker.Ready()
 
 		// init ALB
-		lb = proxy.NewALB(lbAlgo)
+		lb = proxy.NewALB(lbAlgo, backends)
 		log.Info("Load balancer starting", "port", cfg.Port, "algorithm", cfg.LBAlgo)
 
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), lb.(http.Handler)); err != nil {
@@ -81,7 +84,7 @@ func main() {
 		<-healthChecker.Ready()
 
 		// init NLB
-		lb = proxy.NewNLB(lbAlgo)
+		lb = proxy.NewNLB(lbAlgo, backends)
 		log.Info("Load balancer starting", "port", cfg.Port, "algorithm", cfg.LBAlgo)
 
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Port))

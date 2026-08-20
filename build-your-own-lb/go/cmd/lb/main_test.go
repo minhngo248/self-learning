@@ -45,7 +45,7 @@ func TestMain_CallTheUnhealthyBackendInTheFirstPeriodSecond(t *testing.T) {
 	<-healthChecker.Ready()
 
 	lbAlgo := algo.NewRoundRobin(backends)
-	alb := proxy.NewALB(lbAlgo)
+	alb := proxy.NewALB(lbAlgo, backends)
 	server := httptest.NewServer(alb)
 	defer server.Close()
 
