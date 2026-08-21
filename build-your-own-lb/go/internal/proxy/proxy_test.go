@@ -1,6 +1,7 @@
 package proxy_test
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -82,15 +83,31 @@ func BenchmarkALB_ConnectionsPerSecond(b *testing.B) {
 	rr := algo.NewRoundRobin(backends)
 	alb := proxy.NewALB(rr, backends)
 
-	srv := httptest.NewServer(alb)
-	defer srv.Close()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	serverDone := make(chan struct{})
+	b.Cleanup(func() {
+		cancel()
+		<-serverDone
+	})
+	go func() {
+		defer close(serverDone)
+		if err := alb.ListenAndServe(ctx, listener); err != nil {
+			b.Errorf("ALB server failed: %v", err)
+		}
+	}()
 
 	client := &http.Client{}
+	serverURL := "http://" + listener.Addr().String()
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			resp, err := client.Get(srv.URL + "/")
+			resp, err := client.Get(serverURL + "/")
 			if err != nil {
 				b.Error(err)
 				continue
@@ -118,7 +135,13 @@ func BenchmarkNLB_ConnectionsPerSecond(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	go nlb.ListenAndServe(b.Context(), ln)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	b.Cleanup(func() {
+		cancel()
+		ln.Close()
+	})
+	go nlb.ListenAndServe(ctx, ln)
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

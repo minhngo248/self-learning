@@ -23,20 +23,20 @@ func NewNLB(lbAlgo algo.LBAlgo, backends []*backend.Backend) *NLB {
 	}
 }
 
-func (nlb *NLB) ListenAndServe(ctx context.Context, listener net.Listener) {
+func (nlb *NLB) ListenAndServe(ctx context.Context, listener net.Listener) error {
 	defer listener.Close()
 
 	go func() {
 		<-ctx.Done()
-		listener.Close()
+		listener.Close() // interrupt the blocking listener.Accept() inside infinite loop
 	}()
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			if ctx.Err() != nil {
-				log.Info("NLB listener stopped")
-				return
+				//log.Info("NLB listener stopped")
+				return nil
 			}
 
 			log.Error("Failed to accept connection", "error", err)
@@ -49,7 +49,6 @@ func (nlb *NLB) ListenAndServe(ctx context.Context, listener net.Listener) {
 
 func (nlb *NLB) HandleConnection(conn net.Conn) {
 	defer conn.Close()
-
 	// Pick a backend
 	backendAddr := nlb.lbAlgo.NextAddr()
 	if backendAddr == "" {
@@ -80,7 +79,6 @@ func (nlb *NLB) HandleConnection(conn net.Conn) {
 		if err != nil {
 			log.Error("Error while copying from client to backend", "error", err)
 		}
-		//log.Info("Finished copying from client to backend", "backend", backendAddr)
 		// signal backend we're done sending
 		if tcpConn, ok := backendConn.(*net.TCPConn); ok {
 			tcpConn.CloseWrite()
@@ -94,7 +92,6 @@ func (nlb *NLB) HandleConnection(conn net.Conn) {
 		if err != nil {
 			log.Error("Error while copying from backend to client", "error", err)
 		}
-		//log.Info("Finished copying from backend to client", "backend", backendAddr)
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			tcpConn.CloseWrite()
 		}

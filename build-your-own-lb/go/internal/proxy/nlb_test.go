@@ -11,7 +11,7 @@ import (
 	"github.com/minhngo248/self-learning/build-your-own-lb/go/internal/proxy"
 )
 
-func TestNLB_handleConnectionWithLeastConn(t *testing.T) {
+func TestNLB_HandleConnectionWithLeastConn(t *testing.T) {
 	b1 := backend.NewBackend("localhost:18000")
 	b2 := backend.NewBackend("localhost:18001")
 	b3 := backend.NewBackend("localhost:18002")

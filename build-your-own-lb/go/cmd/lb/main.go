@@ -5,7 +5,6 @@ import (
 	"fmt"
 	log "log/slog"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -63,7 +62,14 @@ func main() {
 		utils.Fatal("Unsupported load balancing algorithm: %s", cfg.LBAlgo)
 	}
 
-	var lb any
+	lbCtx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
+
+	var lb proxy.LB
 	switch cfg.LBType {
 	case "application":
 		// Init application health checker
@@ -76,7 +82,12 @@ func main() {
 		lb = proxy.NewALB(lbAlgo, backends)
 		log.Info("Load balancer starting", "port", cfg.Port, "algorithm", cfg.LBAlgo)
 
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), lb.(http.Handler)); err != nil {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Port))
+		if err != nil {
+			utils.Fatal("Failed to start listener: %v", err)
+		}
+
+		if err := lb.(*proxy.ALB).ListenAndServe(lbCtx, listener); err != nil {
 			utils.Fatal("Server failed: %v", err)
 		}
 	case "network":
@@ -95,13 +106,7 @@ func main() {
 			utils.Fatal("Failed to start listener: %v", err)
 		}
 
-		nlbCtx, stop := signal.NotifyContext(
-			context.Background(),
-			os.Interrupt,
-			syscall.SIGTERM,
-		)
-		defer stop()
-		lb.(*proxy.NLB).ListenAndServe(nlbCtx, listener)
+		lb.(*proxy.NLB).ListenAndServe(lbCtx, listener)
 	default:
 		utils.Fatal("Unsupported load balancer type: %s", cfg.LBType)
 	}
