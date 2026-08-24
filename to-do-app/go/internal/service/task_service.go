@@ -8,22 +8,22 @@ import (
 
 type TaskService struct {
 	current  uint16
-	taskList map[uint16]task.Task
+	taskList map[uint16]*task.Task
 }
 
 func NewTaskService() *TaskService {
 	return &TaskService{
-		taskList: make(map[uint16]task.Task),
+		taskList: make(map[uint16]*task.Task),
 	}
 }
 
 func (ts *TaskService) Add(taskName string) {
-	ts.taskList[ts.current] = *task.NewTask(ts.current, taskName)
+	ts.taskList[ts.current] = task.NewTask(ts.current, taskName)
 	ts.current++
 }
 
-func (ts *TaskService) List() []task.Task {
-	tasks := make([]task.Task, 0)
+func (ts *TaskService) List() []*task.Task {
+	tasks := make([]*task.Task, 0)
 	for _, task := range ts.taskList {
 		tasks = append(tasks, task)
 	}
@@ -36,6 +36,5 @@ func (ts *TaskService) Complete(taskID uint16) error {
 	}
 	task := ts.taskList[taskID]
 	task.Complete()
-	ts.taskList[taskID] = task
 	return nil
 }

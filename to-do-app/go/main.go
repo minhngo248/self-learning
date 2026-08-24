@@ -11,7 +11,7 @@ func main() {
 	var choice int
 	var taskName string
 	var taskID uint16
-	var taskList []task.Task
+	var taskList []*task.Task
 
 	var taskService = service.NewTaskService()
 
