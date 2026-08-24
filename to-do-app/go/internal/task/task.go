@@ -9,13 +9,17 @@ type Task struct {
 	done      bool
 }
 
-func NewTask(id uint16, name string) *Task {
+func newTask(id uint16, name string, createdAt time.Time, done bool) *Task {
 	return &Task{
 		id:        id,
 		name:      name,
-		createdAt: time.Now(),
-		done:      false,
+		createdAt: createdAt,
+		done:      done,
 	}
+}
+
+func (t *Task) complete() {
+	t.done = true
 }
 
 func (t *Task) GetID() uint16 {
@@ -30,10 +34,6 @@ func (t *Task) GetCreatedAt() time.Time {
 	return t.createdAt
 }
 
-func (t *Task) GetDone() bool {
+func (t *Task) IsDone() bool {
 	return t.done
-}
-
-func (t *Task) Complete() {
-	t.done = true
 }
