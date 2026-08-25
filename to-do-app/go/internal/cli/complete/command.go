@@ -1,4 +1,4 @@
-package list
+package complete
 
 import (
 	"errors"
@@ -11,18 +11,17 @@ import (
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all tasks in to do list",
+		Use:   "complete",
+		Short: "Task is done",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			taskId, _ := cmd.Flags().GetUint16("id")
+
+			path, _ := cmd.Flags().GetString("path")
+
 			taskService := task.NewTaskService()
 			fileSystem := file.NewFileService(taskService)
 
-			taskFile, err := cmd.Flags().GetString("path")
-			if err != nil {
-				return err
-			}
-			listErr := fileSystem.ReadTasksFromFile(taskFile)
-
+			listErr := fileSystem.ReadTasksFromFile(path)
 			if len(listErr) > 0 {
 				for _, err := range listErr {
 					fmt.Println(err)
@@ -30,16 +29,26 @@ func NewCommand() *cobra.Command {
 				return errors.New("All the errors are listed above")
 			}
 
-			showStatus, err := cmd.Flags().GetBool("all")
+			task := taskService.GetTaskById(taskId)
+			if task == nil {
+				return fmt.Errorf("Task with id %d not found", taskId)
+			}
+
+			// complete a task
+			taskService.Complete(taskId)
+
+			// complete a task in file
+			err := fileSystem.CompleteTaskInFile(path, task)
 			if err != nil {
 				return err
 			}
-			taskService.StdOutPrint(showStatus)
+
 			return nil
 		},
 	}
+	cmd.Flags().Uint16("id", 0, "Id of a task (required)")
+	cmd.MarkFlagRequired("id")
 	cmd.Flags().String("path", "", "Path of the task file (required)")
 	cmd.MarkFlagRequired("path")
-	cmd.Flags().BoolP("all", "a", false, "List all tasks with status")
 	return cmd
 }

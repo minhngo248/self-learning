@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/minhngo248/self-learning/to-do-app/go/internal/cli/add"
+	"github.com/minhngo248/self-learning/to-do-app/go/internal/cli/complete"
 	"github.com/minhngo248/self-learning/to-do-app/go/internal/cli/list"
 	"github.com/spf13/cobra"
 )
@@ -19,4 +20,5 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(list.NewCommand())
 	rootCmd.AddCommand(add.NewCommand())
+	rootCmd.AddCommand(complete.NewCommand())
 }

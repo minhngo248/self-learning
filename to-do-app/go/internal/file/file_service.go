@@ -2,7 +2,9 @@ package file
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -86,4 +88,38 @@ func (fs *FileService) AppendTaskToFile(filePath string, task *task.Task) {
 	fileWriter.WriteString(",")
 	fileWriter.WriteString(strconv.FormatBool(task.IsDone()))
 	fileWriter.WriteString("\n")
+}
+
+func (fs *FileService) CompleteTaskInFile(filePath string, task *task.Task) error {
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return err
+	}
+	i := 0
+	var foundLine string
+	for line := range bytes.Lines(content) {
+		if i == int(task.GetID()) {
+			foundLine = string(line)
+		}
+	}
+
+	var replaceLine string
+	replaceLine = strconv.Itoa(int(task.GetID())) + "," + task.GetName() + "," + task.GetCreatedAt().Format("2006-01-02 15:04:05") + "," + strconv.FormatBool(task.IsDone()) + "\n"
+
+	// Replace line in content
+	contentStr := string(content)
+	contentStr = strings.Replace(contentStr, foundLine, replaceLine, 1)
+
+	fileWriter := bufio.NewWriter(file)
+	defer fileWriter.Flush()
+
+	// write contentStr to file
+	fileWriter.WriteString(contentStr)
+	return nil
 }
