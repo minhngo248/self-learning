@@ -1,0 +1,96 @@
+name: K8s operator
+
+on:
+  push:
+    paths:
+      - "k8s-operator/**"
+  pull_request:
+    paths:
+      - "k8s-operator/**"
+
+permissions: {}
+
+jobs:
+  lint:
+    permissions:
+      contents: read
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: k8s-operator
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: k8s-operator/go.mod
+          cache-dependency-path: k8s-operator/go.sum
+
+      - name: Check linter configuration
+        run: make lint-config
+      - name: Run linter
+        run: make lint
+
+  test:
+    permissions:
+      contents: read
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: k8s-operator
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: k8s-operator/go.mod
+          cache-dependency-path: k8s-operator/go.sum
+
+      - name: Running Tests
+        run: |
+          go mod tidy
+          make test
+
+  test-e2e:
+    permissions:
+      contents: read
+    name: Test e2e
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: k8s-operator
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: k8s-operator/go.mod
+          cache-dependency-path: k8s-operator/go.sum
+
+      - name: Install the latest version of kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-$(go env GOARCH)
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Verify kind installation
+        run: kind version
+
+      - name: Running Test e2e
+        run: |
+          go mod tidy
+          make test-e2e

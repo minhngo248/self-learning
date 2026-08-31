@@ -1,0 +1,10 @@
+apiVersion: webapp.kodekloud.com/v1
+kind: WebApp
+metadata:
+  labels:
+    app.kubernetes.io/name: webapp-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: webapp-sample
+spec:
+  image: nginx:1.27
+  replicas: 1
