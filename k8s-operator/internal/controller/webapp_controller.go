@@ -22,6 +22,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -36,7 +37,8 @@ import (
 // WebAppReconciler reconciles a WebApp object
 type WebAppReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=webapp.kodekloud.com,resources=webapps,verbs=get;list;watch;create;update;patch;delete
@@ -60,7 +62,7 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Fetch the WebApp instance from the API server.
 	if err := r.Get(ctx, req.NamespacedName, &webapp); err != nil {
-		// Ignore not-found errors (deleted after reconcile request). Return other errors.
+		// Ignore not-existingDeploy errors (deleted after reconcile request). Return other errors.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -73,30 +75,30 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	foundCM := &corev1.ConfigMap{}
-	err := r.Get(ctx, types.NamespacedName{Name: desiredCM.Name, Namespace: desiredCM.Namespace}, foundCM)
+	existingCM := &corev1.ConfigMap{}
+	err := r.Get(ctx, types.NamespacedName{Name: desiredCM.Name, Namespace: desiredCM.Namespace}, existingCM)
 	if apierrors.IsNotFound(err) {
-		log.Info("creating ConfigMap", "name", desiredCM.Name)
 		if err := r.Create(ctx, desiredCM); err != nil {
 			return ctrl.Result{}, err
 		}
+		log.Info("created ConfigMap", "name", desiredCM.Name)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	desiredDeployment := deploymentFor(&webapp, labels)
-	if err := controllerutil.SetControllerReference(&webapp, desiredDeployment, r.Scheme); err != nil {
+	desiredDeploy := deploymentFor(&webapp, labels)
+	if err := controllerutil.SetControllerReference(&webapp, desiredDeploy, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: desiredDeployment.Name, Namespace: desiredDeployment.Namespace}, found)
+	existingDeploy := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: desiredDeploy.Name, Namespace: desiredDeploy.Namespace}, existingDeploy)
 
 	if apierrors.IsNotFound(err) {
-		log.Info("creating Deployment", "name", desiredDeployment.Name)
-		if err := r.Create(ctx, desiredDeployment); err != nil {
+		if err := r.Create(ctx, desiredDeploy); err != nil {
 			return ctrl.Result{}, err
 		}
+		log.Info("created Deployment", "name", desiredDeploy.Name)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -106,16 +108,29 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	foundSvc := &corev1.Service{}
-	err = r.Get(ctx, types.NamespacedName{Name: desiredSvc.Name, Namespace: desiredSvc.Namespace}, foundSvc)
+	existingSvc := &corev1.Service{}
+	err = r.Get(ctx, types.NamespacedName{Name: desiredSvc.Name, Namespace: desiredSvc.Namespace}, existingSvc)
 	if apierrors.IsNotFound(err) {
-		log.Info("creating Service", "name", desiredSvc.Name)
 		if err := r.Create(ctx, desiredSvc); err != nil {
 			return ctrl.Result{}, err
 		}
+		log.Info("created Service", "name", desiredSvc.Name)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// status
+	var dep appsv1.Deployment
+	if err := r.Get(ctx, client.ObjectKey{Name: webapp.Name, Namespace: webapp.Namespace}, &dep); err != nil {
+		return ctrl.Result{}, err
+	}
+	if webapp.Status.ReadyReplicas != dep.Status.ReadyReplicas {
+		webapp.Status.ReadyReplicas = dep.Status.ReadyReplicas
+		if err := r.Status().Update(ctx, &webapp); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 

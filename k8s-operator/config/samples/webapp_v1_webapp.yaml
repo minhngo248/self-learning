@@ -7,4 +7,4 @@ metadata:
   name: webapp-sample
 spec:
   image: nginx:1.27
-  replicas: 1
+  replicas: 2
