@@ -18,15 +18,18 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	webappv1 "github.com/minhngo248/go-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -70,6 +73,7 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	labels := map[string]string{"app": webapp.Name}
 	selectLabels := map[string]string{"app": webapp.Name}
 
+	// ConfigMap
 	desiredCM := configMapFor(&webapp, labels)
 	if err := controllerutil.SetControllerReference(&webapp, desiredCM, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -86,6 +90,7 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// Deployment
 	desiredDeploy := deploymentFor(&webapp, labels)
 	if err := controllerutil.SetControllerReference(&webapp, desiredDeploy, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -127,6 +132,15 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		log.Info("updated Deployment", "name", dep.Name, "image", dep.Spec.Template.Spec.Containers[0].Image, "replicas", dep.Spec.Replicas)
 	}
 
+	// emit events
+	desiredReplicas := webapp.Spec.Replicas
+	if dep.Status.ReadyReplicas < desiredReplicas || dep.Status.ReadyReplicas > desiredReplicas {
+		r.Recorder.Eventf(&webapp, corev1.EventTypeWarning, "WaitingForReplicas", "Waiting for Deployment %s to become ready: %d/%d replicas ready", dep.Name, dep.Status.ReadyReplicas, desiredReplicas)
+		return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
+	}
+	r.Recorder.Eventf(&webapp, corev1.EventTypeNormal, "WebAppReady", "Deployment %s is ready: %d/%d replicas ready", dep.Name, dep.Status.Replicas, desiredReplicas)
+
+	// Service
 	desiredSvc := serviceFor(&webapp, labels, selectLabels)
 	if err := controllerutil.SetControllerReference(&webapp, desiredSvc, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -240,7 +254,7 @@ func serviceFor(w *webappv1.WebApp, labels, selectLabels map[string]string) *cor
 // SetupWithManager sets up the controller with the Manager.
 func (r *WebAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&webappv1.WebApp{}).
+		For(&webappv1.WebApp{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Named("webapp").
 		Complete(r)
 }
