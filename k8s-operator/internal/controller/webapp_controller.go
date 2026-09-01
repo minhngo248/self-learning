@@ -62,7 +62,7 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Fetch the WebApp instance from the API server.
 	if err := r.Get(ctx, req.NamespacedName, &webapp); err != nil {
-		// Ignore not-existingDeploy errors (deleted after reconcile request). Return other errors.
+		// Ignore not-found errors (deleted after reconcile request). Return other errors.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -103,6 +103,30 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	var dep appsv1.Deployment
+	if err := r.Get(ctx, client.ObjectKey{Name: webapp.Name, Namespace: webapp.Namespace}, &dep); err != nil {
+		return ctrl.Result{}, err
+	}
+	// handle change in replicas
+	var deployChanged bool
+	if *dep.Spec.Replicas != webapp.Spec.Replicas {
+		*dep.Spec.Replicas = webapp.Spec.Replicas
+		deployChanged = true
+	}
+
+	// handle change in image
+	if dep.Spec.Template.Spec.Containers[0].Image != webapp.Spec.Image {
+		dep.Spec.Template.Spec.Containers[0].Image = webapp.Spec.Image
+		deployChanged = true
+	}
+
+	if deployChanged {
+		if err := r.Update(ctx, &dep); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Info("updated Deployment", "name", dep.Name, "image", dep.Spec.Template.Spec.Containers[0].Image, "replicas", dep.Spec.Replicas)
+	}
+
 	desiredSvc := serviceFor(&webapp, labels, selectLabels)
 	if err := controllerutil.SetControllerReference(&webapp, desiredSvc, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -120,7 +144,6 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// status
-	var dep appsv1.Deployment
 	if err := r.Get(ctx, client.ObjectKey{Name: webapp.Name, Namespace: webapp.Namespace}, &dep); err != nil {
 		return ctrl.Result{}, err
 	}
